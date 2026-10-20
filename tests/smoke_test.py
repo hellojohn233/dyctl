@@ -162,19 +162,27 @@ def test_hook_mechanism() -> None:
 def test_crawl() -> None:
     print("\n\033[1m实际抓取\033[0m")
     settings = Settings()
+    from local_server import start_server
+
     from dyctl.crawler import DouyinCrawler, run_sync
 
+    base, server = start_server()
     crawler = DouyinCrawler(settings, profile="smoke", headless=True)
-    outcome = run_sync(
-        crawler.run("https://httpbin.org/json", plan=None, capture_network=True)
-    )
+    try:
+        outcome = run_sync(crawler.run(f"{base}/json", plan=None, capture_network=True))
+    finally:
+        server.shutdown()
     md = outcome.markdown
     check("生成 Markdown", len(md) > 20, f"{len(md)} 字符")
 
     # 网络捕获：0.9.5 的 response 事件带 body
     reqs = getattr(outcome.result, "network_requests", None) or []
     bodies = [
-        e for e in reqs if e.get("event_type") == "response" and (e.get("body") or {}).get("text")
+        e
+        for e in reqs
+        if e.get("event_type") == "response"
+        and "/json" in e.get("url", "")
+        and (e.get("body") or {}).get("text")
     ]
     check("捕获到带 body 的响应", bool(bodies), f"{len(bodies)} 个")
     if bodies:

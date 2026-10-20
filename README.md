@@ -39,43 +39,17 @@ uv run dyctl posts      # 拉一次自己的作品，看看数据通不通
 
 登录态存在 `~/.dyctl/profiles/default/`。同一个账号扫一次就够，后面所有命令复用这份状态。
 
-## 命令一览
+## 命令和参数
 
-| 命令 | 作用 |
-|---|---|
-| `dyctl login` | 扫码登录 |
-| `dyctl status` | 看当前 profile 是不是已登录 |
-| `dyctl logout` | 删掉当前 profile 的登录态 |
-| `dyctl publish` | 发布作品 |
-| `dyctl posts` | 自己的作品列表和播放/点赞/评论数 |
-| `dyctl metrics` | 创作者中心数据概览 |
-| `dyctl comments` | 拉某个作品的评论 |
-| `dyctl reply` | 发评论，或回复某条评论 |
-| `dyctl search` | 搜视频或用户 |
-| `dyctl profile show` | 自己的账号资料 |
-| `dyctl profile posts` | 某个创作者的作品列表 |
-| `dyctl digest` | 抓一个页面，存成 Markdown |
-| `dyctl collect` | 批量抓多个作品页，存成 Markdown |
-| `dyctl analyze` | 抓页面，直接交给 LLM 按任务分析 |
-| `dyctl cookies import` | 导入 cookie 文件，免扫码 |
-| `dyctl cookies export` | 导出当前登录态备份 |
-| `dyctl doctor` | 环境自检 |
-| `dyctl probe` | dump 页面结构，排障用 |
-| `dyctl shot` | 页面截图 |
-| `dyctl version` | 版本号 |
+命令列表、每个命令的全部参数、默认值，都直接问 `--help`：
 
-每个命令都有 `--help`。
+```bash
+dyctl --help              # 全部命令 + 全局选项
+dyctl publish --help      # 某个命令的参数
+dyctl cookies import --help
+```
 
-### 全局选项
-
-| 选项 | 说明 |
-|---|---|
-| `--profile` / `-p` | profile 名，多账号隔离时用，默认 `default` |
-| `--headless` / `--headed` | 无头模式开关，默认有头 |
-| `--slow-mo` | 每个动作之间延迟多少毫秒，慢一点更不容易被风控盯上 |
-| `--json` | 输出 JSON，方便接脚本 |
-| `--cookie-file` / `-c` | 用指定的 cookie 文件登录 |
-| `--verbose` / `-v` | 调试日志 |
+下面只列几个组合好的用法，直接抄。
 
 ## 常用命令
 

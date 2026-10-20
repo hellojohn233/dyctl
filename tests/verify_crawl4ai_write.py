@@ -1,7 +1,7 @@
 """验证 Crawl4AI 能不能做「写」操作。
 
 方式：用 on_execution_started 钩子拿到原始 Playwright page，
-在 httpbin 的表单页上填字段 + 点提交，然后检查服务端是否收到 POST。
+在本地测试服务器的表单页上填字段 + 点提交，然后检查服务端是否收到 POST。
 
 如果这里能跑通，说明 Crawl4AI 完全可以做写操作——
 包括文件上传（page.set_input_files），只是没有现成指令、要手写钩子。
@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from local_server import start_server  # noqa: E402
 
 from dyctl.config import Settings  # noqa: E402
 from dyctl.crawler import DouyinCrawler, run_sync  # noqa: E402
@@ -40,18 +42,20 @@ def main() -> int:
         await page.wait_for_selector("input[name='custname']", timeout=15000)
         await page.fill("input[name='custname']", "一拳")
         await page.fill("input[name='custtel']", "13800138000")
-        # httpbin 的 size 是 radio 不是 select
+        # size 是 radio 组
         await page.check("input[name='size'][value='large']")
-        # 注意：httpbin 的按钮是 <button>Submit order</button>，没有 type 属性
+        # 按钮是 <button>Submit order</button>，没有 type 属性
         # （HTML 默认就是 submit），所以 button[type='submit'] 匹配不到。
         await page.click("form button")
         await page.wait_for_load_state("networkidle")
         submitted["html"] = await page.content()
 
+    base, server = start_server()
     crawler = DouyinCrawler(settings, profile="write-probe", headless=True)
-    outcome = run_sync(
-        crawler.run("https://httpbin.org/forms/post", plan=plan, capture_network=True)
-    )
+    try:
+        outcome = run_sync(crawler.run(f"{base}/form", plan=plan, capture_network=True))
+    finally:
+        server.shutdown()
 
     print("\n\033[1mCrawl4AI 写操作验证\033[0m")
     html = submitted.get("html", "")

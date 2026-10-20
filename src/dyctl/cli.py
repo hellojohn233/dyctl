@@ -18,17 +18,25 @@ from .config import load_settings
 from .utils import console, emit_json, setup_logging
 
 app = typer.Typer(
-    name="dy",
-    help="抖音网页端自动化 CLI（Crawl4AI + Playwright 驱动）",
+    name="dyctl",
+    help="抖音网页端自动化 CLI",
+    epilog=(
+        "第一次使用：\n"
+        "  dyctl login     弹出浏览器，用抖音 App 扫码\n"
+        "  dyctl status    确认登录上了\n"
+        "  dyctl posts     拉一次自己的作品\n"
+        "\n"
+        "每条命令都有 --help，用 `dyctl <命令> --help` 看该命令的参数。"
+    ),
     no_args_is_help=True,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
-profile_app = typer.Typer(help="账号相关命令", no_args_is_help=True)
+profile_app = typer.Typer(help="账号资料与作品列表", no_args_is_help=True)
 app.add_typer(profile_app, name="profile")
 
-cookies_app = typer.Typer(help="cookie 导入导出", no_args_is_help=True)
+cookies_app = typer.Typer(help="导入导出登录用的 cookie", no_args_is_help=True)
 app.add_typer(cookies_app, name="cookies")
 
 
@@ -406,7 +414,7 @@ def cmd_digest(
     full_page: bool = typer.Option(False, "--full-page", help="滚动整页以加载全部内容"),
     shot: bool = typer.Option(False, "--shot", help="同时截图"),
 ) -> None:
-    """抓取页面并转成 LLM-ready 的 Markdown。"""
+    """抓取页面并转成 Markdown。"""
     from .digest import digest_page
 
     payload = digest_page(
@@ -437,7 +445,7 @@ def cmd_collect(
     limit: int = typer.Option(10, "--limit", "-n", help="最多抓多少个作品"),
     concurrency: int = typer.Option(3, "--concurrency", "-c", help="并发数"),
 ) -> None:
-    """批量把作品页转成 LLM-ready 的 Markdown。"""
+    """批量把作品页转成 Markdown。"""
     from .digest import collect_markdown, save_markdown, video_urls
 
     settings = _settings(ctx)
@@ -511,7 +519,7 @@ def cmd_analyze(
     url: str = typer.Argument(..., help="要分析的页面 URL"),
     task: str = typer.Option(..., "--task", "-t", help="交给 LLM 的分析任务"),
 ) -> None:
-    """抓取页面并交给 LLM 按指定任务分析（这就是 LLM 该干的活）。"""
+    """抓取页面并交给 LLM 按指定任务分析。"""
     from .digest import analyze_page
 
     result = analyze_page(_settings(ctx), url, task, profile=ctx.obj["profile"])
@@ -606,7 +614,7 @@ def cmd_probe(
     no_shot: bool = typer.Option(False, "--no-shot", help="不保存截图"),
     wait: int = typer.Option(6000, "--wait", help="页面加载后等待毫秒数"),
 ) -> None:
-    """dump 页面结构：data-e2e / 输入框 / 按钮 / 实际接口，用于维护选择器。"""
+    """dump 页面结构：data-e2e / 输入框 / 按钮 / 实际接口，排查命令失效时用。"""
     from .commands_debug import probe
 
     result = probe(_settings(ctx), url, profile=ctx.obj["profile"], shot=not no_shot, wait_ms=wait)
