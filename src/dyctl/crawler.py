@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import Settings
+from .cookies import describe
 from .selectors import BLOCK
 from .utils import get_logger
 
@@ -180,6 +181,14 @@ class Ctx:
         except Exception:  # noqa: BLE001
             return {}
         return {c.get("name", ""): c.get("value", "") for c in raw or []}
+
+    async def all_cookies(self) -> list[dict]:
+        """完整 cookie 列表（含 domain / path / expires），用于导出。"""
+        try:
+            src = self.context if self.context is not None else self.page.context
+            return list(await src.cookies() or [])
+        except Exception:  # noqa: BLE001
+            return []
 
     async def is_logged_in(self) -> bool:
         return bool(set(await self.cookies()) & LOGIN_COOKIES)
@@ -333,11 +342,31 @@ class DouyinCrawler:
         settings: Settings,
         profile: str | None = None,
         headless: bool | None = None,
+        cookie_file: str | None = None,
     ) -> None:
         self.settings = settings
         self.profile = profile or settings.default_profile
         self.headless = settings.headless if headless is None else headless
+        self.cookie_file = cookie_file
         self.settings.ensure_dirs()
+
+    def load_cookies(self) -> list[dict]:
+        """读取并过滤 cookie 文件。返回空列表表示不用外部 cookie。"""
+        if not self.cookie_file:
+            return []
+        from .cookies import filter_douyin, parse_cookie_file
+
+        parsed = parse_cookie_file(self.cookie_file)
+        kept, dropped = filter_douyin(parsed)
+        log.info("cookie 文件 %s: %s", self.cookie_file, describe(kept))
+        if dropped:
+            log.info("已忽略 %d 个非抖音 cookie", dropped)
+        if not kept:
+            raise ValueError(
+                f"cookie 文件里没有抖音域名的 cookie（{self.cookie_file}）。"
+                "请确认导出的是 douyin.com 的登录态。"
+            )
+        return kept
 
     # ---- 配置 ----
 
@@ -363,6 +392,13 @@ class DouyinCrawler:
         ua = native_chrome_ua()
         if ua:
             kwargs["user_agent"] = ua
+
+        # 外部 cookie 注入：Crawl4AI 会用 context.add_cookies() 应用，
+        # 对持久化 profile 有效 —— 注入后会直接落进 profile 的 cookie 库。
+        cookies = self.load_cookies()
+        if cookies:
+            kwargs["cookies"] = cookies
+            log.info("注入 %d 个 cookie", len(cookies))
 
         return BrowserConfig(**kwargs)
 

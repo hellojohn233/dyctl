@@ -300,6 +300,42 @@ LLM 配置走环境变量，LiteLLM 会自动识别各厂商：
 | `DY_LLM_BASE_URL` | 自定义端点 | — |
 | `DY_LLM_MODEL` | 覆盖模型名 | 同 provider |
 
+### Cookie 导入导出
+
+不想扫码?从浏览器插件导出 cookie 文件喂进来就行。
+
+```bash
+# 导入(自动识别格式,导入后已存进本地 profile,以后不用再导)
+dyctl cookies import ~/Downloads/cookies.txt
+
+# 临时用一次
+dyctl --cookie-file ~/Downloads/cookies.txt posts
+
+# 备份当前登录态(换机器/换 profile 用)
+dyctl cookies export ~/backup-cookies.txt
+```
+
+**支持 4 种格式,自动识别:**
+
+| 格式 | 长相 | 来源 |
+|---|---|---|
+| Netscape cookies.txt | `.douyin.com\tTRUE\t/\tFALSE\t1793696400\tsessionid\tabc` | 插件 "Get cookies.txt LOCALLY" / EditThisCookie / Cookie-Editor |
+| JSON 数组 | `[{"domain":".douyin.com","name":"sessionid","value":"...","expirationDate":...}]` | Cookie-Editor / EditThisCookie 导出 JSON |
+| JSON 对象 | `{"sessionid":"...","sid_tt":"..."}` | 手写 / 其它工具 |
+| Playwright storage_state | `{"cookies":[...],"origins":[...]}` | 本工具 `dyctl cookies export` 之前存的 |
+
+**怎么拿 cookie 文件:**
+
+1. Chrome 装插件 **Get cookies.txt LOCALLY** 或 **EditThisCookie**
+2. 打开 `douyin.com`,确认已登录
+3. 插件里导出这个域名的 cookie
+4. `dyctl cookies import <文件>`
+
+> ⚠️ 只会保留 `douyin.com` 域名的 cookie,其它站点的自动丢掉。
+> 注入用的是 Crawl4AI 的 `context.add_cookies()`,对持久化 profile 有效 ——
+> **导入一次就写进 profile 的 cookie 库,之后所有命令都不用再导。**
+> cookie 过期了就重新导一次。
+
 ### 多账号
 
 不同 profile 各自持有独立的 cookie 与登录态：

@@ -28,6 +28,10 @@ app = typer.Typer(
 profile_app = typer.Typer(help="账号相关命令", no_args_is_help=True)
 app.add_typer(profile_app, name="profile")
 
+cookies_app = typer.Typer(help="cookie 导入导出", no_args_is_help=True)
+app.add_typer(cookies_app, name="cookies")
+
+
 # ---------------------------------------------------------------- 全局回调
 
 
@@ -45,6 +49,12 @@ def main(
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="输出调试日志"),
     as_json: bool = typer.Option(False, "--json", help="以 JSON 输出结果，便于脚本消费"),
+    cookie_file: str | None = typer.Option(
+        None,
+        "--cookie-file",
+        "-c",
+        help="用这个 cookie 文件登录（支持 cookies.txt / JSON），免扫码",
+    ),
 ) -> None:
     setup_logging(verbose)
     settings = load_settings()
@@ -58,6 +68,7 @@ def main(
         "settings": settings,
         "profile": profile,
         "json": as_json,
+        "cookie_file": cookie_file,
     }
 
 
@@ -76,6 +87,7 @@ def _crawler(ctx: typer.Context):
     return DouyinCrawler(
         _settings(ctx),
         profile=ctx.obj["profile"],
+        cookie_file=ctx.obj.get("cookie_file"),
     )
 
 
@@ -101,11 +113,16 @@ def _run(ctx: typer.Context, url: str, plan, extract=None, **kwargs):
 def cmd_login(
     ctx: typer.Context,
     wait: int = typer.Option(180, "--wait", help="等待扫码的秒数"),
+    cookie_file: str | None = typer.Option(
+        None, "--cookie-file", "-c", help="从 cookie 文件导入登录态，免扫码"
+    ),
 ) -> None:
-    """登录抖音：扫码。"""
+    """登录抖音：扫码，或从 cookie 文件导入。"""
     from .actions import plan_login
 
     _settings(ctx).login_wait_seconds = wait
+    if cookie_file:
+        ctx.obj["cookie_file"] = cookie_file
     outcome = _run(ctx, "https://www.douyin.com/", plan_login)
     data = outcome.data
     if data.get("already_logged_in"):
@@ -504,6 +521,68 @@ def cmd_analyze(
         console.print(f"[bold]来源:[/bold] {result['url']}  [dim]({result['provider']})[/dim]")
         console.rule("[bold]分析结果")
         console.print(result["answer"])
+
+
+# ---------------------------------------------------------------- cookie
+
+
+@cookies_app.command("import")
+def cmd_cookies_import(
+    ctx: typer.Context,
+    path: str = typer.Argument(..., help="cookie 文件路径（cookies.txt 或 JSON）"),
+    check: bool = typer.Option(True, "--check/--no-check", help="导入后校验是否已登录"),
+) -> None:
+    """从 cookie 文件导入抖音登录态（免扫码）。"""
+    from .cookies import describe, filter_douyin, parse_cookie_file
+    from .cookies import export_cookies as _export  # noqa: F401
+
+    parsed = parse_cookie_file(path)
+    kept, dropped = filter_douyin(parsed)
+    console.print(f"[cyan]{path}[/cyan]")
+    console.print(f"  解析结果: {describe(kept)}")
+    if dropped:
+        console.print(f"  已忽略 {dropped} 个非抖音 cookie")
+
+    if not kept:
+        console.print("[red]✗ 没有抖音域名的 cookie[/red]")
+        raise typer.Exit(code=1)
+
+    ctx.obj["cookie_file"] = path
+    if check:
+        from .actions import plan_status
+
+        outcome = _run(ctx, "https://www.douyin.com/", plan_status)
+        data = outcome.data
+        if data.get("logged_in"):
+            console.print("[bold green]✓ 导入成功，已登录[/bold green]（已存入本地 profile，之后不用再导）")
+        else:
+            console.print("[yellow]✗ cookie 注入后仍未登录——文件可能已过期[/yellow]")
+            _emit(ctx, data)
+            raise typer.Exit(code=1)
+    _emit(ctx, {"ok": True, "count": len(kept), "dropped": dropped})
+
+
+@cookies_app.command("export")
+def cmd_cookies_export(
+    ctx: typer.Context,
+    path: str = typer.Argument(..., help="导出目标路径（cookies.txt）"),
+) -> None:
+    """把当前登录态导出成 cookies.txt，方便备份或换机器。"""
+    from .cookies import export_cookies
+
+    captured: dict = {}
+
+    async def plan(ctx_inner):
+        captured["cookies"] = await ctx_inner.all_cookies()
+        return {"ok": True}
+
+    _run(ctx, "https://www.douyin.com/", plan)
+    cookies = captured.get("cookies") or []
+    if not cookies:
+        console.print("[yellow]没有可导出的 cookie（可能未登录）[/yellow]")
+        raise typer.Exit(code=1)
+    out = export_cookies(cookies, path)
+    console.print(f"[green]✓ 已导出 {len(cookies)} 个 cookie:[/green] {out}")
 
 
 # ---------------------------------------------------------------- 排障
