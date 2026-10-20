@@ -1,0 +1,40 @@
+[project]
+name = "dyctl"
+version = "0.1.0"
+description = "抖音网页端自动化 CLI：扫码登录、发布视频、拉数据、抓评论、批量转 Markdown 喂 AI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # 全栈 Crawl4AI：它本身基于 Playwright，负责浏览器生命周期、持久化 profile、
+    # stealth、Markdown 抽取、批量并发。本项目在钩子里拿原始 page 做页面级动作。
+    # 锁定 1.57.x 是为了 Playwright 侧的 chromium-1200 浏览器缓存可直接复用。
+    "playwright>=1.57.0,<1.58",
+    "crawl4ai>=0.9.0",
+    "rich>=14.3.0",
+    "typer>=0.25.0",
+]
+
+[project.scripts]
+dyctl = "dyctl.cli:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dyctl"]
+
+[dependency-groups]
+dev = ["ruff>=0.8.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer 的参数默认值必须写成 typer.Option(...)，这是官方推荐用法
+"src/dyctl/cli.py" = ["B008"]

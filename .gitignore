@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 构建产物
+build/
+dist/
+
+# 工具缓存
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 本地状态（默认在 ~/.dyctl，这里兜底）
+.dyctl/
+*.log
+
+# macOS
+.DS_Store
